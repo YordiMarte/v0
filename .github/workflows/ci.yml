@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: v0
+          POSTGRES_USER: v0
+          POSTGRES_PASSWORD: v0
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U v0 -d v0"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-secret
+      DJANGO_DEBUG: "false"
+      DATABASE_URL: postgres://v0:v0@localhost:5432/v0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements/dev.txt
+
+      - run: pip install -r requirements/dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: pytest
