@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "core",
     "accounts",
     "organizations",
+    "documents",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -80,11 +81,33 @@ REST_FRAMEWORK = {
     # Secure by default: every endpoint requires authentication unless it
     # explicitly opts out.
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-    "DEFAULT_THROTTLE_RATES": {"auth": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {"auth": "10/min", "upload": "30/hour"},
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+# --- File storage -----------------------------------------------------------
+MEDIA_ROOT = BASE_DIR / "media"
+
+DOCUMENT_MAX_UPLOAD_BYTES = env.int("DOCUMENT_MAX_UPLOAD_BYTES", default=10 * 1024 * 1024)
+
+if env.bool("USE_S3", default=False):
+    # Credentials come from the standard AWS chain (environment variables or an
+    # IAM role), never from the code or the repository.
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None  # private objects
+    DEFAULT_FILE_BACKEND = "storages.backends.s3.S3Storage"
+else:
+    DEFAULT_FILE_BACKEND = "django.core.files.storage.FileSystemStorage"
+
+STORAGES = {
+    "default": {"BACKEND": DEFAULT_FILE_BACKEND},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }

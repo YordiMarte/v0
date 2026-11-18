@@ -1,8 +1,12 @@
+import itertools
+
 import pytest
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from documents.services import create_document
 from organizations.models import Membership, Organization
 
 
@@ -10,6 +14,15 @@ from organizations.models import Membership, Organization
 def _clear_cache():
     """Throttle counters live in the cache; start every test from zero."""
     cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _in_memory_storage(settings):
+    """Tests never touch the disk or S3."""
+    settings.STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
 
 
 @pytest.fixture
@@ -62,3 +75,18 @@ def alice(make_member, org_a) -> User:
 @pytest.fixture
 def bob(make_member, org_b) -> User:
     return make_member("bob@example.com", org_b, Membership.Role.OWNER)
+
+
+@pytest.fixture
+def make_document(db):
+    counter = itertools.count()
+
+    def _make(organization, uploaded_by=None, name="doc.txt", content=None):
+        content = content or f"content {next(counter)}".encode()
+        return create_document(
+            organization=organization,
+            uploaded_by=uploaded_by,
+            upload=SimpleUploadedFile(name, content),
+        )
+
+    return _make
