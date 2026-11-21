@@ -29,7 +29,7 @@ jobs:
           --health-retries 10
 
     env:
-      DJANGO_SECRET_KEY: ci-only-not-a-secret
+      DJANGO_SECRET_KEY: ci-only-not-a-secret-key-0123456789abcdef
       DJANGO_DEBUG: "false"
       DATABASE_URL: postgres://v0:v0@localhost:5432/v0
 

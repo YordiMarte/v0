@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "accounts",
     "organizations",
     "documents",
+    "ingestion",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -90,7 +91,6 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# --- File storage -----------------------------------------------------------
 MEDIA_ROOT = BASE_DIR / "media"
 
 DOCUMENT_MAX_UPLOAD_BYTES = env.int("DOCUMENT_MAX_UPLOAD_BYTES", default=10 * 1024 * 1024)
@@ -111,3 +111,21 @@ STORAGES = {
     "default": {"BACKEND": DEFAULT_FILE_BACKEND},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
+
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+_DEFAULT_EMBEDDING_MODELS = {
+    "local": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "openai": "text-embedding-3-small",
+}
+# "local" runs inside the container; "openai" calls the OpenAI API.
+EMBEDDING_PROVIDER = env("EMBEDDING_PROVIDER", default="local")
+EMBEDDING_MODEL = env(
+    "EMBEDDING_MODEL", default=_DEFAULT_EMBEDDING_MODELS.get(EMBEDDING_PROVIDER, "")
+)
+FASTEMBED_CACHE_DIR = env("FASTEMBED_CACHE_DIR", default=str(BASE_DIR / ".cache" / "fastembed"))
+
+INGEST_CHUNK_SIZE = env.int("INGEST_CHUNK_SIZE", default=1000)
+INGEST_CHUNK_OVERLAP = env.int("INGEST_CHUNK_OVERLAP", default=150)
+INGEST_MAX_CHUNKS = env.int("INGEST_MAX_CHUNKS", default=2000)
+INGEST_BATCH_SIZE = env.int("INGEST_BATCH_SIZE", default=100)
+INGEST_STALE_MINUTES = env.int("INGEST_STALE_MINUTES", default=15)

@@ -88,6 +88,23 @@ class DocumentViewSet(
         response["X-Content-Type-Options"] = "nosniff"
         return response
 
+    def reprocess(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset()).select_for_update(of=("self",))
+        with transaction.atomic():
+            document = get_object_or_404(queryset, pk=self.kwargs["pk"])
+            self.check_object_permissions(request, document)
+            if document.status != Document.Status.FAILED:
+                return Response(
+                    {"detail": "Only failed documents can be reprocessed."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            document.status = Document.Status.PENDING
+            document.error_message = ""
+            document.save(update_fields=["status", "error_message", "updated_at"])
+
+        return Response(DocumentSerializer(document).data, status=status.HTTP_202_ACCEPTED)
+
     def perform_destroy(self, instance):
         if self.membership.role == Membership.Role.MEMBER:
             raise PermissionDenied("Only owners and admins can delete documents.")

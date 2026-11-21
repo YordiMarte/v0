@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from documents.services import create_document
+from ingestion.models import EMBEDDING_DIMENSIONS
 from organizations.models import Membership, Organization
 
 
@@ -90,3 +91,49 @@ def make_document(db):
         )
 
     return _make
+
+
+@pytest.fixture
+def fake_embeddings(monkeypatch):
+    """Replace the OpenAI call. Returns the list of batches that were requested."""
+    batches: list[list[str]] = []
+
+    def fake(texts):
+        batches.append(list(texts))
+        # Never a zero vector: cosine distance is undefined for them.
+        return [[1.0, float(len(text))] + [0.0] * (EMBEDDING_DIMENSIONS - 2) for text in texts]
+
+    monkeypatch.setattr("ingestion.pipeline.embed_texts", fake)
+    return batches
+
+
+def _build_pdf(text: str) -> bytes:
+    """A minimal valid one-page PDF containing `text` (no parentheses)."""
+    stream = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode()
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref_start = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode()
+    out += b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF\n"
+    ).encode()
+    return bytes(out)
+
+
+@pytest.fixture
+def make_pdf():
+    return _build_pdf

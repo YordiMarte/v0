@@ -18,13 +18,31 @@ services:
   api:
     build: ./apps/api
     env_file: .env
+    environment:
+      FASTEMBED_CACHE_DIR: /models
     ports:
       - "8000:8000"
     volumes:
       - ./apps/api:/app
+      - models:/models
     depends_on:
       db:
         condition: service_healthy
 
+  worker:
+    build: ./apps/api
+    command: python manage.py process_documents
+    env_file: .env
+    environment:
+      FASTEMBED_CACHE_DIR: /models
+    volumes:
+      - ./apps/api:/app
+      - models:/models
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["worker"]
+
 volumes:
   pgdata:
+  models:

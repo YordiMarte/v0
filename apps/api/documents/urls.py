@@ -18,4 +18,9 @@ urlpatterns = [
         DocumentViewSet.as_view({"get": "download"}),
         name="document-download",
     ),
+    path(
+        "organizations/<uuid:org_id>/documents/<uuid:pk>/reprocess/",
+        DocumentViewSet.as_view({"post": "reprocess"}),
+        name="document-reprocess",
+    ),
 ]
